@@ -21,7 +21,6 @@
       <change afterPath="$PROJECT_DIR$/../main_project" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../my_web_app" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../web_project" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -130,6 +129,7 @@
       <workItem from="1762715954806" duration="12393000" />
       <workItem from="1762737976914" duration="322000" />
       <workItem from="1762738981176" duration="2117000" />
+      <workItem from="1762890291461" duration="962000" />
     </task>
     <servers />
   </component>
