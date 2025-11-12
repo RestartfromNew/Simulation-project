@@ -1,9 +1,11 @@
 import simpy
 import random
 import heapq
+import numpy as np
 import pandas as pd
 k=3
 
+random.seed(42)
 DOCTOR_NUM=k
 SIMULATION_TIME=1*24*60
 DAY_MINUTES=24*60
@@ -158,7 +160,10 @@ def sample_service_time(patient):
         "ctas4": 20,
         "ctas5": 15
     }[patient.ctas_level]
-    return random.expovariate(1.0 / base_time)
+
+    alpha = 2.0
+    beta = base_time / alpha
+    return random.gammavariate(alpha, beta)
 
 
 
@@ -265,7 +270,7 @@ data = [{
 df = pd.DataFrame(data)
 print("Average service time:", df["service_time"].mean())
 print("Average waiting time:", df["waiting_time"].mean())
-print("Average total stay time:", df["departure_time"].sub(df["arrival_time"]).mean())
+print("Average total system time:", df["departure_time"].sub(df["arrival_time"]).mean())
 
 # average times grouped by CTAS level
 print(df.groupby("ctas_level")[["waiting_time", "service_time"]].mean())
@@ -301,3 +306,38 @@ plt.xlabel("Arrival Time (minutes)")
 plt.ylabel(f"Rolling Mean of Waiting Time (window={window})")
 plt.title("Trend of Waiting Time over Time")
 plt.show()
+
+# 5. Arrivals per hour plot
+arrivals = df["arrival_time"].copy()
+hour = (arrivals // 60).astype(int)
+arrivals_by_hour = hour.value_counts().sort_index()
+
+plt.figure()
+arrivals_by_hour.plot(kind="bar")
+plt.xlabel("Hour of Day")
+plt.ylabel("Arrivals")
+plt.title("Arrivals per Hour")
+plt.tight_layout(); plt.show()
+
+# 6. Average witing time with 95% CI interval
+def mean_ci(x, alpha=0.05):
+    x = np.asarray(x.dropna())
+    m = x.mean()
+    se = x.std(ddof=1)/np.sqrt(len(x))
+    z = 1.96
+    return m, m - z*se, m + z*se
+
+g = df.groupby("ctas_level")["waiting_time"].apply(mean_ci)
+means  = g.apply(lambda t: t[0])
+lower  = g.apply(lambda t: t[1])
+upper  = g.apply(lambda t: t[2])
+err    = means - lower
+
+order = ["ctas1","ctas2","ctas3","ctas4","ctas5"]
+means = means.reindex(order); err = err.reindex(order)
+
+plt.figure()
+plt.bar(means.index, means.values, yerr=err.values, capsize=4)
+plt.xlabel("CTAS Level"); plt.ylabel("Average Waiting (min)")
+plt.title("Average Waiting by CTAS (95% CI)")
+plt.tight_layout(); plt.show()
