@@ -67,6 +67,17 @@ class Patient:
         """heapq uses < for comparison"""
         return self.queue_rank > other.queue_rank
 
+ARRIVAL_SCV=1.4
+#SCV, Squared Coefficient of Variation （表示到达的波动）
+def gamma_params_with_SCV(mean_val,scv):
+    # scv(quared Coefficient of Variation)= Var(A)/(E[A])^2
+    scv = max(scv, 1e-9)
+    alpha = 1.0 / scv
+    #alpha:shape, E(x)=alpha * theta
+    #theta:scale, Var(x)=alpha* power(theta,2)
+    theta = mean_val / alpha
+    return alpha, theta
+    #two parameters of Gamma
 def sample_interarrival(env_time):
     # generate the interarrival time of the next patient
     t_in_day = env_time % DAY_MINUTES
@@ -74,8 +85,21 @@ def sample_interarrival(env_time):
     mean_arrival = MEAN_PATIENT_PER_HOUR[hour]
     if mean_arrival <= 0:
         return 60
+
     mean_interarrival = 60 / mean_arrival
-    return random.expovariate(1.0 / mean_interarrival)
+    alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
+    rng = np.random.default_rng(141)
+    interarrival_gap=rng.gamma(shape=alpha, scale=theta)
+    # return random.expovariate(1.0 / mean_interarrival)
+    return float(max(interarrival_gap, 1e-6))
+
+ARRIVAL_RATE_PER_HOUR = 10
+def sample_interarrival_constant(env_time):
+    mean_interarrival = 60 / ARRIVAL_RATE_PER_HOUR  # 平均间隔 6 分钟
+    alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
+    rng = np.random.default_rng()
+    return float(max(rng.gamma(shape=alpha, scale=theta), 1e-6))
+
 def sample_level():
     # determine CTAS level using cumulative probability
     r = random.random()
@@ -109,6 +133,9 @@ def generate_arrival(env,doctors):
     while True:
         # generate interarrival time and move to the next arrival
         interarrival=sample_interarrival(env.now)
+        #sample_interarrival通过每个小时的平均人数生成gamma的参数
+        # interarrival = sample_interarrival_constant(env.now)
+        #sample_interarrival_constant 的每小时平均人数是恒定的，通过svc的值来控制病人来的间隔
         yield env.timeout(interarrival)
         # generate random patient info
         patient_id=patient_id+1
@@ -160,10 +187,20 @@ def sample_service_time(patient):
         "ctas4": 20,
         "ctas5": 15
     }[patient.ctas_level]
-
-    alpha = 2.0
-    beta = base_time / alpha
-    return random.gammavariate(alpha, beta)
+    service_scv_by_ctas = {
+        "ctas1": 1.2,  # 高波动（重症情况差异大）
+        "ctas2": 1.0,
+        "ctas3": 0.8,
+        "ctas4": 0.6,
+        "ctas5": 0.4  # 简单病例较稳定
+    }
+    scv = service_scv_by_ctas[patient.ctas_level]
+    # alpha = 2.0
+    # beta = base_time / alpha
+    alpha = 1.0 / scv  # shape 参数
+    theta = base_time / alpha  # scale 参数
+    service_time = random.gammavariate(alpha, theta)
+    return max(service_time, 1e-6)
 
 
 
