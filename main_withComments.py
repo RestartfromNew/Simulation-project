@@ -4,8 +4,9 @@ import heapq
 import numpy as np
 import pandas as pd
 k=5
-
-random.seed(42)
+GLOBAL_SEED = 141
+random.seed(GLOBAL_SEED)
+rng_np = np.random.default_rng(GLOBAL_SEED)
 DOCTOR_NUM=k
 SIMULATION_TIME=7*24*60
 DAY_MINUTES=24*60
@@ -88,8 +89,8 @@ def sample_interarrival(env_time):
 
     mean_interarrival = 60 / mean_arrival
     alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
-    rng = np.random.default_rng(141)
-    interarrival_gap=rng.gamma(shape=alpha, scale=theta)
+
+    interarrival_gap=rng_np.gamma(shape=alpha, scale=theta)
     # return random.expovariate(1.0 / mean_interarrival)
     return float(max(interarrival_gap, 1e-6))
 
@@ -97,8 +98,8 @@ ARRIVAL_RATE_PER_HOUR = 10
 def sample_interarrival_constant(env_time):
     mean_interarrival = 60 / ARRIVAL_RATE_PER_HOUR  # 平均间隔 6 分钟
     alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
-    rng = np.random.default_rng()
-    return float(max(rng.gamma(shape=alpha, scale=theta), 1e-6))
+
+    return float(max(rng_np.gamma(shape=alpha, scale=theta), 1e-6))
 
 def sample_level():
     # determine CTAS level using cumulative probability
