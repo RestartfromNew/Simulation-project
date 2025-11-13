@@ -3,11 +3,11 @@ import random
 import heapq
 import numpy as np
 import pandas as pd
-k=3
+k=5
 
 random.seed(42)
 DOCTOR_NUM=k
-SIMULATION_TIME=1*24*60
+SIMULATION_TIME=7*24*60
 DAY_MINUTES=24*60
 MEAN_PATIENT_PER_HOUR=  [
     # average number of patients per hour of the day
@@ -67,7 +67,7 @@ class Patient:
         """heapq uses < for comparison"""
         return self.queue_rank > other.queue_rank
 
-ARRIVAL_SCV=1.4
+ARRIVAL_SCV=0.24
 #SCV, Squared Coefficient of Variation （表示到达的波动）
 def gamma_params_with_SCV(mean_val,scv):
     # scv(quared Coefficient of Variation)= Var(A)/(E[A])^2
@@ -308,6 +308,31 @@ df = pd.DataFrame(data)
 print("Average service time:", df["service_time"].mean())
 print("Average waiting time:", df["waiting_time"].mean())
 print("Average total system time:", df["departure_time"].sub(df["arrival_time"]).mean())
+Patient_number=len(departure_list)
+print(f"总计{Patient_number}个病人")
+
+data = [{
+    "id": p.id,
+    "arrival_time": p.arrival_time,
+    "service_time": p.service_time,
+    "waiting_time": p.waiting_time,
+    "departure_time": p.departure_time,
+    "ctas_level": p.ctas_level
+} for p in departure_list]
+
+data_doctor=[{
+"id": d.id,
+    "busy time": d.busy_time,
+}for d in doctors]
+
+df = pd.DataFrame(data)
+print("到达率：",Patient_number/SIMULATION_TIME)
+print("平均服务时间：", df["service_time"].mean())
+print("平均等待时间：", df["waiting_time"].mean())
+print("平均总停留时间：", df["departure_time"].sub(df["arrival_time"]).mean())
+
+for d in doctors:
+    print(f"{d.id}的服务总时间是{d.busy_time},利用率为{d.busy_time/SIMULATION_TIME}")
 
 # average times grouped by CTAS level
 print(df.groupby("ctas_level")[["waiting_time", "service_time"]].mean())
