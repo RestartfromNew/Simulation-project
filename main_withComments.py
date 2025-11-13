@@ -67,7 +67,7 @@ class Patient:
         """heapq uses < for comparison"""
         return self.queue_rank > other.queue_rank
 
-ARRIVAL_SCV=0.24
+ARRIVAL_SCV=1.708812612
 #SCV, Squared Coefficient of Variation （表示到达的波动）
 def gamma_params_with_SCV(mean_val,scv):
     # scv(quared Coefficient of Variation)= Var(A)/(E[A])^2
