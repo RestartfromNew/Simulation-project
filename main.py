@@ -3,6 +3,7 @@ import simpy
 import random
 import heapq
 import pandas as pd
+import numpy as np
 k=5
 
 DOCTOR_NUM=k
@@ -26,7 +27,7 @@ CTAS2_queue=[]
 CTAS3_queue=[]
 departure_list=[]
 patient_id=0
-
+random.seed(42)
 class Doctor:
     def __init__(self, env, id):
         self.proc=None
@@ -316,3 +317,18 @@ plt.ylabel(f"Rolling Mean of Waiting Time (window={window})")
 plt.title("Trend of Waiting Time over Time")
 plt.show()
 
+
+
+arrival_gaps = np.diff(sorted(df["arrival_time"]))
+service_times = df["service_time"].values
+
+ca2 = np.var(arrival_gaps) / (np.mean(arrival_gaps)**2)
+cs2 = np.var(service_times) / (np.mean(service_times)**2)
+
+print("ca^2 =", ca2)
+print("cs^2 =", cs2)
+
+V = (ca2 + cs2) / 2
+print("V =", V)
+
+print("GGK理论Wq 平均等待时间：", df["waiting_time"].mean()*V)
