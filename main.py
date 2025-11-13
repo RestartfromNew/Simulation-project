@@ -3,10 +3,10 @@ import simpy
 import random
 import heapq
 import pandas as pd
-k=3
+k=5
 
 DOCTOR_NUM=k
-SIMULATION_TIME=1*24*60
+SIMULATION_TIME=7*24*60
 DAY_MINUTES=24*60
 MEAN_PATIENT_PER_HOUR=  [
     #每天每个时间段的平均病人数量
@@ -255,6 +255,8 @@ env.run(until=SIMULATION_TIME)
 for i in departure_list:
     print(f"id{i.id},arrive time{i.arrival_time},departure_time:{i.departure_time},service_time:{i.service_time},waiting_time:{i.waiting_time}")
 
+Patient_number=len(departure_list)
+print(f"总计{Patient_number}个病人")
 
 data = [{
     "id": p.id,
@@ -265,10 +267,19 @@ data = [{
     "ctas_level": p.ctas_level
 } for p in departure_list]
 
+data_doctor=[{
+"id": d.id,
+    "busy time": d.busy_time,
+}for d in doctors]
+
 df = pd.DataFrame(data)
+print("到达率：",Patient_number/SIMULATION_TIME)
 print("平均服务时间：", df["service_time"].mean())
 print("平均等待时间：", df["waiting_time"].mean())
 print("平均总停留时间：", df["departure_time"].sub(df["arrival_time"]).mean())
+
+for d in doctors:
+    print(f"{d.id}的服务总时间是{d.busy_time},利用率为{d.busy_time/SIMULATION_TIME}")
 
 # 按 CTAS 等级分组的平均时间
 print(df.groupby("ctas_level")[["waiting_time", "service_time"]].mean())
