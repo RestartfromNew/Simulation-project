@@ -12,7 +12,6 @@
       <change afterPath="$PROJECT_DIR$/../.idea/vcs.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../DS-Neural Network/.idea/DS-Neural Network.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../DS-Neural Network/learning.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plot.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../first_web_project/.idea/.gitignore" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../first_web_project/.idea/first_web_project.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../first_web_project/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
@@ -23,12 +22,7 @@
       <change afterPath="$PROJECT_DIR$/../my_web_app" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../web_project" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/FIFS.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/input.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/iteration_seeds.py" beforeDir="false" afterPath="$PROJECT_DIR$/iteration_seeds.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main_withComments.py" beforeDir="false" afterPath="$PROJECT_DIR$/main_withComments.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_summary.csv" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -247,35 +241,19 @@
       <workItem from="1763862937062" duration="2250000" />
       <workItem from="1763870917971" duration="785000" />
       <workItem from="1763871707174" duration="7017000" />
-      <workItem from="1763909323885" duration="6953000" />
+      <workItem from="1763909323885" duration="10630000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/main_withComments.py</url>
-          <line>140</line>
-          <option name="timeStamp" value="3" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/main_withComments.py</url>
-          <line>310</line>
-          <option name="timeStamp" value="4" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
-  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Simulation__project$FIFS.coverage" NAME="FIFS Coverage Results" MODIFIED="1763853123095" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Simulation__project$iteration_seeds.coverage" NAME="iteration_seeds Coverage Results" MODIFIED="1763915284607" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Simulation__project$main.coverage" NAME="main Coverage Results" MODIFIED="1762994393644" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Simulation__project$main_withComments.coverage" NAME="main_withComments Coverage Results" MODIFIED="1763912284210" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Simulation__project$plot.coverage" NAME="plot Coverage Results" MODIFIED="1763915326367" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Simulation__project$main_withComments.coverage" NAME="main_withComments Coverage Results" MODIFIED="1763916978512" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Simulation__project$input.coverage" NAME="input Coverage Results" MODIFIED="1763850718606" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

@@ -255,12 +255,8 @@ def generate_arrival(env, doctors):
     """Generate arriving patients over time."""
     global patient_id
     last_report = 0
-    hourly_count = 0
     while True:
         interarrival = sample_interarrival(env.now)
-        # alternative:
-        # interarrival = sample_interarrival_constant(env.now)
-
         yield env.timeout(interarrival)
         patient_id += 1
 
