@@ -1,21 +1,39 @@
-from socket import send_fds
+"""
+Discrete-event simulation of an Emergency Department (ED) queueing system.
+
+- SimPy-based DES with k doctors (DOCTOR_NUM) and CTAS 1–5 triage levels.
+- Two-stage flow: nurse assessment -> doctor service, with possible admission and bed waiting.
+- Arrival process: non-homogeneous gamma-based interarrival times with controlled SCV.
+- Service times: CTAS-dependent gamma-distributed durations.
+- CTAS1 patients can preempt doctors treating lower-priority patients.
+- The simulation runs with a warm-up period and then a main observation period.
+- For each run, per-patient and per-doctor statistics are collected, and a summary dict is returned.
+"""
+
+from socket import send_fds  # currently unused, can be removed if not needed
 
 import simpy
 import random
 import heapq
 import numpy as np
 import pandas as pd
-k=5
+import matplotlib.pyplot as plt
 from scipy.stats import gamma
+
+k = 2
 GLOBAL_SEED = None
+all_patients = []
+all_doctor = []
 random.seed(GLOBAL_SEED)
 rng_np = np.random.default_rng(GLOBAL_SEED)
-DOCTOR_NUM=k
-SIMULATION_TIME=14*24*60
-DAY_MINUTES=7*24*60
-WARM_UP_TIME=2*24*60
-MEAN_PATIENT_PER_HOUR=  [
-    # average number of patients per hour of the day
+
+DOCTOR_NUM = k
+SIMULATION_TIME = 7 * 24 * 60
+DAY_MINUTES = 24 * 60
+WARM_UP_TIME = 7 * 24 * 60
+
+# average number of patients per hour of the day
+MEAN_PATIENT_PER_HOUR = [
     3.0, 2.8, 2.5, 2.2, 2.0, 2.3,
     3.0, 5.0, 7.5, 9.5, 10.5, 10.0,
     9.8, 9.2, 8.8, 7.8, 7.2, 6.6,
@@ -24,20 +42,26 @@ MEAN_PATIENT_PER_HOUR=  [
 
 rates = np.array(MEAN_PATIENT_PER_HOUR)
 
-# 估计 gamma shape(k) 和 scale(θ)
+# fit gamma distribution for hourly arrival rates
 shape, loc, scale = gamma.fit(rates, floc=0)
 print("shape k =", shape, "scale θ =", scale)
-CTAS={"ctas1":0,"ctas2":15,"ctas3":30,"ctas4":60,"ctas5":120}
-# maximum waiting time (minutes) for each CTAS level
-CTAS_distribution={"ctas1":0.01,"ctas2":0.16,"ctas3":0.56,"ctas4":0.25,"ctas5":0.02}
-CTAS_nurse={"ctas1":3.2,"ctas2":7.1,"ctas3":20.4,"ctas4":39.7,"ctas5":32.1}
+
+CTAS = {"ctas1": 0, "ctas2": 15, "ctas3": 30, "ctas4": 60, "ctas5": 120}
+
+# probability distribution of CTAS levels
+CTAS_distribution = {"ctas1": 0.01, "ctas2": 0.16, "ctas3": 0.56, "ctas4": 0.25, "ctas5": 0.02}
+
+# mean nurse-processing times by CTAS (minutes)
+CTAS_nurse = {"ctas1": 3.2, "ctas2": 7.1, "ctas3": 20.4, "ctas4": 39.7, "ctas5": 32.1}
+
 ADMISSION_PROB = {
-    "ctas1": 0.89,  # 例如 I: 8/9
-    "ctas2": 0.65,  # II: 36/55
-    "ctas3": 0.35,  # III:104/297
-    "ctas4": 0.13,  # IV: 43/327
-    "ctas5": 0.05   # V: 11/206
+    "ctas1": 0.89,
+    "ctas2": 0.65,
+    "ctas3": 0.35,
+    "ctas4": 0.13,
+    "ctas5": 0.05
 }
+
 BED_WAIT_MEAN = {
     "ctas1": 60.0,
     "ctas2": 120.0,
@@ -45,89 +69,100 @@ BED_WAIT_MEAN = {
     "ctas4": 60.0,
     "ctas5": 30.0
 }
-# probability distribution of CTAS levels
-CTAS1_queue=[]
-CTAS2_queue=[]
-CTAS3_queue=[]
-departure_list=[]
-patient_id=0
+
+CTAS1_queue = []
+CTAS2_queue = []
+CTAS3_queue = []
+departure_list = []
+patient_id = 0
+
+ARRIVAL_SCV = 1.708812612  # SCV: squared coefficient of variation for arrival process
+
 
 class Doctor:
     def __init__(self, env, id):
-        self.proc=None
+        self.proc = None
         self.env = env
         self.id = id
         self.status = 'idle'
-        self.patient_level=None
-        self.busy_time=0
-        self.seen_number=0
-        self.current_patient_id=None
+        self.patient_level = None
+        self.busy_time = 0
+        self.seen_number = 0
+        self.current_patient_id = None
 
     def start_service(self):
         return
+
     def end_service(self):
         return
 
+
 class Patient:
-    # Patient record state
-    def __init__(self, env,doctors, id,arrive_time,ctas_level,rest_waiting_time,nurse_process_time):
+    def __init__(self, env, doctors, id, arrive_time, ctas_level, rest_waiting_time, nurse_process_time):
         self.env = env
         self.id = id
         self.status = 'arrival'
         self.nurse_process_time = nurse_process_time
-        # patient state: arrival, waiting, being served, depart
-        self.arrival_time=arrive_time
-        self.waiting_time=0
-        self.total_time=0
-        self.service_time=0
-        self.departure_time=None
-        self.bed_time=0
-        self.ctas_level=ctas_level
-        self.queue_rank=0
-        self.doctors=doctors
-        # queue_rank is based on the ratio of waiting_time/rest_waiting_time, higher is served earlier
-        self.rest_waiting_time=rest_waiting_time
+
+        self.arrival_time = arrive_time
+        self.waiting_time = 0
+        self.total_time = 0
+        self.service_time = 0
+        self.departure_time = None
+        self.bed_time = 0
+        self.ctas_level = ctas_level
+        self.queue_rank = 0
+        self.doctors = doctors
+
+        # queue_rank is based on waiting_time/rest_waiting_time, higher is served earlier
+        self.rest_waiting_time = rest_waiting_time
         self.proc = env.process(self.run())
+
     def print_required_parameters(self):
-        print("rest_waiting_time:",self.rest_waiting_time)
+        print("rest_waiting_time:", self.rest_waiting_time)
 
     def __lt__(self, other):
         """heapq uses < for comparison"""
         return self.queue_rank > other.queue_rank
 
     def run(self):
-        # Nurse stage (first processing stage)
+        # nurse stage
         yield self.env.timeout(self.nurse_process_time)
-        # After this moment, patient is ready to join the doctor queue
+        # after this moment, patient is ready to join the doctor queue
         self.status = "waiting"
 
         renew_waiting_rank(self)  # update queue rank after nurse time
-        print(f"{self.id}: 进入队列的时间 {self.env.now}，到达时间{self.arrival_time}")
-        insert_queue(self.ctas_level,self)
-        if(self.ctas_level=="ctas1"):
-            disruption(self.env.now,self,self.ctas_level,self.doctors)
+        insert_queue(self.ctas_level, self)
+
+        if self.ctas_level == "ctas1":
+            disruption(self.env.now, self, self.ctas_level, self.doctors)
+
         renew_queue(self.env.now)
 
-ARRIVAL_SCV=1.708812612
-#SCV, Squared Coefficient of Variation （表示到达的波动）
-def gamma_params_with_SCV(mean_val,scv):
-    # scv(quared Coefficient of Variation)= Var(A)/(E[A])^2
+
+def gamma_params_with_SCV(mean_val, scv):
+    """
+    Compute shape (alpha) and scale (theta) for a gamma distribution
+    given mean and squared coefficient of variation (SCV).
+    SCV = Var(X) / (E[X])^2
+    """
     scv = max(scv, 1e-9)
     alpha = 1.0 / scv
-    #alpha:shape, E(x)=alpha * theta
-    #theta:scale, Var(x)=alpha* power(theta,2)
     theta = mean_val / alpha
     return alpha, theta
-    #two parameters of Gamma
+
+
 def sample_interarrival(env_time):
-    # 1. sample current arrival rate λ ~ Gamma(k, θ)
+    """
+    Sample interarrival time (minutes) using:
+    - gamma-distributed hourly arrival rate
+    - then gamma with target SCV for interarrival times
+    """
     mean_arrival = rng_np.gamma(shape=shape, scale=scale)
     mean_arrival = max(mean_arrival, 1e-6)
 
-    # 2. 转换为平均 interarrival time (分钟)
     mean_interarrival = 60.0 / mean_arrival
 
-    # 3. 如果需要带 SCV，用 gamma 生成真实间隔
     alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
     interarrival_gap = rng_np.gamma(shape=alpha, scale=theta)
 
@@ -135,123 +170,119 @@ def sample_interarrival(env_time):
 
 
 ARRIVAL_RATE_PER_HOUR = 10
-def sample_interarrival_constant(env_time):
-    mean_interarrival = 60 / ARRIVAL_RATE_PER_HOUR  # 平均间隔 6 分钟
-    alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
 
+
+def sample_interarrival_constant(env_time):
+    """
+    Alternative interarrival generator with constant hourly rate
+    and SCV control via gamma distribution.
+    """
+    mean_interarrival = 60 / ARRIVAL_RATE_PER_HOUR
+    alpha, theta = gamma_params_with_SCV(mean_interarrival, ARRIVAL_SCV)
     return float(max(rng_np.gamma(shape=alpha, scale=theta), 1e-6))
-def sample_nurse_visit_time(env_time,patient_level):
+
+
+def sample_nurse_visit_time(env_time, patient_level):
     mean = CTAS_nurse[patient_level]
-    lam = 1.0 / mean  # lambda = 1/mean
+    lam = 1.0 / mean
     return random.expovariate(lam)
 
+
 def sample_level():
-    # determine CTAS level using cumulative probability
+    """Sample CTAS level from the categorical distribution."""
     r = random.random()
     cum = 0
     for level, p in CTAS_distribution.items():
         cum += p
-        if (r <= cum):
+        if r <= cum:
             return level
     return "ctas5"
+
+
 def renew_queue(current_time):
-    # update the rank of all patients when an event occurs
+    """Update queue ranks when an event occurs."""
     for q in (CTAS1_queue, CTAS2_queue, CTAS3_queue):
         for p in q:
             p.waiting_time = current_time - p.arrival_time
             renew_waiting_rank(p)
-        # re-heapify because ranks have changed
         heapq.heapify(q)
 
+
 def renew_waiting_rank(patient):
+    """
+    Update a patient's rank.
+    CTAS1 patients with zero remaining waiting time get a very large rank
+    so that they are always prioritized.
+    """
     if patient.rest_waiting_time <= 0:
-        # CTAS1 patients: assign a very large rank to always be prioritized
         patient.queue_rank = 1e9 + patient.waiting_time
     else:
         patient.queue_rank = patient.waiting_time / patient.rest_waiting_time
+
+
 def insert_queue(level, patient):
+    """Push patient into the appropriate priority queue."""
     if level == "ctas1":
         heapq.heappush(CTAS1_queue, patient)
     elif level == "ctas2":
-        heapq.heappush(CTAS2_queue,patient)
+        heapq.heappush(CTAS2_queue, patient)
     else:
         heapq.heappush(CTAS3_queue, patient)
     print("patient arrived, patient id:", patient_id, " arrive time", patient.arrival_time)
-def disruption(env_time,patient,level,doctors):
+
+
+def disruption(env_time, patient, level, doctors):
+    """
+    For CTAS1, check if a doctor can be preempted.
+    Prefer to preempt a doctor treating CTAS3, then CTAS2.
+    """
     if level == "ctas1":
-        # for CTAS1, check if a doctor can be preempted
         candidate = None
         for d in doctors:
             if d.status == 'busy' and d.patient_level != "ctas1":
                 if candidate is None:
                     candidate = d
                 else:
-                    # prefer to preempt a doctor treating CTAS3, then CTAS2
                     if d.patient_level > candidate.patient_level:
                         candidate = d
 
         if candidate is not None:
-            print(f"⚠️ CTAS1 arrived, preempt Doctor{candidate.id} who is treating {candidate.patient_level}")
-            # interrupt the doctor process
+            print(f"CTAS1 arrival: preempt Doctor{candidate.id} treating {candidate.patient_level}")
             candidate.proc.interrupt()
 
-def generate_arrival(env,doctors):
-    # generate a new patient arrival
+
+def generate_arrival(env, doctors):
+    """Generate arriving patients over time."""
     global patient_id
     last_report = 0
     hourly_count = 0
     while True:
-        # generate interarrival time and move to the next arrival
-        interarrival=sample_interarrival(env.now)
-        #sample_interarrival通过每个小时的平均人数生成gamma的参数
+        interarrival = sample_interarrival(env.now)
+        # alternative:
         # interarrival = sample_interarrival_constant(env.now)
-        #sample_interarrival_constant 的每小时平均人数是恒定的，通过svc的值来控制病人来的间隔
-        yield env.timeout(interarrival)
-        # generate random patient info
-        patient_id=patient_id+1
 
-        level=sample_level()
-        nurse_process_time=sample_nurse_visit_time(env.now,level)
-        rest_waiting_time=CTAS[level]
+        yield env.timeout(interarrival)
+        patient_id += 1
+
+        level = sample_level()
+        nurse_process_time = sample_nurse_visit_time(env.now, level)
+        rest_waiting_time = CTAS[level]
         current_time = env.now
-        new_patient=Patient(env,doctors,patient_id,current_time,level,rest_waiting_time,nurse_process_time)
-        # update queue ranks
+        Patient(env, doctors, patient_id, current_time, level, rest_waiting_time, nurse_process_time)
+
         renew_queue(current_time)
-        #
-        # # put the patient into the queue
-        # if level=="ctas1":
-        #     heapq.heappush(CTAS1_queue,new_patient)
-        # elif level=="ctas2":
-        #     heapq.heappush(CTAS2_queue,new_patient)
-        # else:
-        #     heapq.heappush(CTAS3_queue,new_patient)
-        # print("patient arrived, patient id:",patient_id," arrive time",new_patient.arrival_time)
-        #
-        # if level=="ctas1":
-        #     # for CTAS1, check if a doctor can be preempted
-        #     candidate = None
-        #     for d in doctors:
-        #         if d.status == 'busy' and d.patient_level != "ctas1":
-        #             if candidate is None:
-        #                 candidate = d
-        #             else:
-        #                 # prefer to preempt a doctor treating CTAS3, then CTAS2
-        #                 if d.patient_level > candidate.patient_level:
-        #                     candidate = d
-        #
-        #     if candidate is not None:
-        #         print(f"⚠️ CTAS1 arrived, preempt Doctor{candidate.id} who is treating {candidate.patient_level}")
-        #         # interrupt the doctor process
-        #         candidate.proc.interrupt()
 
         if env.now - last_report >= 60:
-            print(f"[t={env.now / 60:.1f}h] total arrivals: {patient_id}, "
-                  f"CTAS1={len(CTAS1_queue)}, CTAS2={len(CTAS2_queue)}, CTAS3={len(CTAS3_queue)}")
+            print(
+                f"[t={env.now / 60:.1f}h] total arrivals: {patient_id}, "
+                f"CTAS1={len(CTAS1_queue)}, CTAS2={len(CTAS2_queue)}, CTAS3={len(CTAS3_queue)}"
+            )
             last_report = env.now
             hourly_count = 0
 
+
 def sample_service_time(patient):
-    # generate service time as exponential distribution
+    """Sample CTAS-dependent service time using a gamma distribution."""
     base_time = {
         "ctas1": 73.6,
         "ctas2": 38.9,
@@ -259,70 +290,68 @@ def sample_service_time(patient):
         "ctas4": 15.0,
         "ctas5": 10.9
     }[patient.ctas_level]
+
     service_scv_by_ctas = {
-        "ctas1": 1.2,  # 高波动（重症情况差异大）
+        "ctas1": 1.2,
         "ctas2": 1.0,
         "ctas3": 0.8,
         "ctas4": 0.6,
-        "ctas5": 0.4  # 简单病例较稳定
+        "ctas5": 0.4
     }
     scv = service_scv_by_ctas[patient.ctas_level]
-    # alpha = 2.0
-    # beta = base_time / alpha
-    alpha = 1.0 / scv  # shape 参数
-    theta = base_time / alpha  # scale 参数
+    alpha = 1.0 / scv
+    theta = base_time / alpha
     service_time = random.gammavariate(alpha, theta)
     return max(service_time, 1e-6)
 
 
-
-
 def find_next_patient() -> 'Patient | None':
-    # select the next patient based on highest rank
-    if(len(CTAS1_queue) > 0):
-        patient=heapq.heappop(CTAS1_queue)
+    """Select the next patient based on highest-rank among CTAS queues."""
+    if len(CTAS1_queue) > 0:
+        patient = heapq.heappop(CTAS1_queue)
         print(f"Pick CTAS1 patient {patient.id}, rank={patient.queue_rank:.2f}, wait={patient.waiting_time:.1f}")
-    elif(len(CTAS2_queue) > 0):
-        patient=heapq.heappop(CTAS2_queue)
+    elif len(CTAS2_queue) > 0:
+        patient = heapq.heappop(CTAS2_queue)
         print(f"Pick CTAS2 patient {patient.id}, rank={patient.queue_rank:.2f}, wait={patient.waiting_time:.1f}")
-    elif(len(CTAS3_queue) > 0):
-        patient=heapq.heappop(CTAS3_queue)
+    elif len(CTAS3_queue) > 0:
+        patient = heapq.heappop(CTAS3_queue)
         print(f"Pick CTAS3 patient {patient.id}, rank={patient.queue_rank:.2f}, wait={patient.waiting_time:.1f}")
-    # preemption logic not updated yet
     else:
-        patient=None
+        patient = None
     return patient
 
+
 def doctor_process(env, doctor):
+    """Doctor process: repeatedly picks and serves patients, with preemption."""
     while True:
         patient: 'Patient' = find_next_patient()
         if not patient:
-            # no patients, wait 1 minute and check again
+            # no patients, wait and re-check
             yield env.timeout(1)
             continue
-        # patient selected
-        doctor.status='busy'
-        doctor.current_patient_id=patient.id
-        doctor.patient_level=patient.ctas_level
-        patient.waiting_time=env.now-patient.arrival_time
+
+        doctor.status = 'busy'
+        doctor.current_patient_id = patient.id
+        doctor.patient_level = patient.ctas_level
+        patient.waiting_time = env.now - patient.arrival_time
         service_time = sample_service_time(patient)
-        patient.status='being serviced'
-        print(f"Doctor{doctor.id}, {doctor.current_patient_id} is now serviced, service_time:{service_time},start_time:{env.now}")
-        start_time=env.now
+        patient.status = 'being serviced'
+        print(
+            f"Doctor{doctor.id}, patient {doctor.current_patient_id} is now serviced, "
+            f"service_time={service_time:.2f}, start_time={env.now:.2f}"
+        )
+        start_time = env.now
         try:
             # normal completion
             yield env.timeout(service_time)
-            # update doctor status
             base_departure_time = env.now
-            current_time = env.now
-            doctor.status='idle'
-            doctor.busy_time+=service_time
-            doctor.seen_number+=1
-            doctor.current_patient_id=None
+            doctor.status = 'idle'
+            doctor.busy_time += service_time
+            doctor.seen_number += 1
+            doctor.current_patient_id = None
             doctor.patient_level = None
             patient.service_time = service_time
 
-            # 2) 这里不再让系统时间前进，而是“逻辑上”加一个等床时间
             admitted = (random.random() < ADMISSION_PROB[patient.ctas_level])
             if admitted:
                 print(f"{patient.ctas_level} is admitted")
@@ -332,36 +361,34 @@ def doctor_process(env, doctor):
                 bed_wait = 0.0
 
             patient.bed_time = bed_wait
-
-            # 3) 用 base_departure_time + bed_wait 来定义“逻辑上的离开时间”
             patient.departure_time = base_departure_time + bed_wait
             patient.total_time = patient.departure_time - patient.arrival_time
             patient.status = 'depart'
 
             departure_list.append(patient)
 
-            print(f"finished doctor{doctor.id}, patient {patient.id}, "
-                  f"decision_time={base_departure_time}, logical_departure={patient.departure_time}")
+            print(
+                f"Finished Doctor{doctor.id}, patient {patient.id}, "
+                f"decision_time={base_departure_time:.2f}, logical_departure={patient.departure_time:.2f}"
+            )
 
-            # 如果你 renew_queue 想用真实 env.now，就用 base_departure_time 就可以
             renew_queue(base_departure_time)
 
-            # update ranks
         except simpy.Interrupt:
-            # preemption logic
+            # preemption
             current_time = env.now
             served = env.now - start_time
-            print(f"Interruption occurred, Doctor{doctor.id} interrupted after serving {served:.2f} minutes "
-                  f"for patient {patient.id} (level {patient.ctas_level})")
-            doctor.busy_time += served  # 医生确实忙了这一段
+            print(
+                f"Interruption: Doctor{doctor.id} interrupted after {served:.2f} minutes "
+                f"for patient {patient.id} (level {patient.ctas_level})"
+            )
+            doctor.busy_time += served
             patient.service_time += served
             renew_queue(current_time)
             patient.status = 'waiting'
-            patient.service_time += served  # partial service time recorded
             renew_waiting_rank(patient)
-            # reward interrupted patient with a bonus rank
-            patient.queue_rank+=1
-            # put the patient back into its CTAS queue
+            patient.queue_rank += 1
+
             if patient.ctas_level == "ctas1":
                 heapq.heappush(CTAS1_queue, patient)
             elif patient.ctas_level == "ctas2":
@@ -372,7 +399,6 @@ def doctor_process(env, doctor):
             doctor.status = 'idle'
             doctor.current_patient_id = None
             doctor.patient_level = None
-            # next loop will prioritize CTAS1 patients
 
 
 def run_simulation(seeds):
@@ -380,30 +406,35 @@ def run_simulation(seeds):
     GLOBAL_SEED = seeds
     random.seed(GLOBAL_SEED)
     rng_np = np.random.default_rng(GLOBAL_SEED)
+
     env = simpy.Environment()
-    doctors=[Doctor(env,f'Doctor{i}') for i in range(0,DOCTOR_NUM)]
+    doctors = [Doctor(env, f'Doctor{i}') for i in range(0, DOCTOR_NUM)]
     env.process(generate_arrival(env, doctors))
     for doctor in doctors:
-        # create k doctors running in parallel
         doctor.proc = env.process(doctor_process(env, doctor))
+
     print(f"---- Warm-up for {WARM_UP_TIME} minutes ----")
     env.run(until=WARM_UP_TIME)
 
-    # 预热完：保留当前队列和医生状态，只清统计量
+    # after warm-up, keep current queues and doctor states, but reset statistics
     departure_list.clear()
     for d in doctors:
         d.busy_time = 0.0
         d.seen_number = 0
 
     print("---- Start official simulation period ----")
-
-    # ========= 5. 正式统计阶段 =========
-    # 注意：这里跑到 warm_up + SIMULATION_TIME
     env.run(until=WARM_UP_TIME + SIMULATION_TIME)
 
-    for i in departure_list:
-        print(f"id{i.id},arrive time{i.arrival_time},departure_time:{i.departure_time},service_time:{i.service_time},waiting_time:{i.waiting_time}")
+    all_patients.extend(departure_list)
+    all_doctor.extend(doctors)
 
+    for p in departure_list:
+        print(
+            f"id={p.id}, arrive={p.arrival_time:.2f}, "
+            f"depart={p.departure_time:.2f}, "
+            f"service={p.service_time:.2f}, "
+            f"wait={p.waiting_time:.2f}, ctas={p.ctas_level}"
+        )
 
     data = [{
         "id": p.id,
@@ -411,127 +442,106 @@ def run_simulation(seeds):
         "service_time": p.service_time,
         "waiting_time": p.waiting_time,
         "departure_time": p.departure_time,
+        "bed_time": p.bed_time,
         "ctas_level": p.ctas_level,
+        "whole_time": p.departure_time - p.arrival_time,
         "nurse_time": p.nurse_process_time,
     } for p in departure_list]
 
     df = pd.DataFrame(data)
+    Patient_number = len(departure_list)
+    print(f"Total patients in this run: {Patient_number}")
+
+    data_doctor = [{
+        "id": d.id,
+        "busy time": d.busy_time,
+        "utilization": d.busy_time / SIMULATION_TIME
+    } for d in doctors]
+    ddf = pd.DataFrame(data_doctor)
+
+    print("Arrival rate:", Patient_number / SIMULATION_TIME)
     print("Average service time:", df["service_time"].mean())
     print("Average waiting time:", df["waiting_time"].mean())
-    print("Average total system time:", df["departure_time"].sub(df["arrival_time"]).mean())
-    Patient_number=len(departure_list)
-    print(f"总计{Patient_number}个病人")
-
-    data = [{
-        "id": p.id,
-        "arrival_time": p.arrival_time,
-        "service_time": p.service_time,
-        "waiting_time": p.waiting_time,
-        "departure_time": p.departure_time,
-        "bed_time":p.bed_time,
-        "ctas_level": p.ctas_level,
-        "whole_time":p.departure_time-p.arrival_time,
-        "nurse_time":p.nurse_process_time,
-    } for p in departure_list]
-
-    data_doctor=[{
-    "id": d.id,
-        "busy time": d.busy_time,
-        "utilization":d.busy_time/SIMULATION_TIME
-    }for d in doctors]
-    ddf=pd.DataFrame(data_doctor)
-    df = pd.DataFrame(data)
-    print("到达率：",Patient_number/SIMULATION_TIME)
-    print("平均服务时间：", df["service_time"].mean())
-    print("平均等待时间：", df["waiting_time"].mean())
-    print("平均总停留时间：", df["departure_time"].sub(df["arrival_time"]).mean())
+    print("Average total time in system:", df["departure_time"].sub(df["arrival_time"]).mean())
 
     for d in doctors:
-        print(f"{d.id}的服务总时间是{d.busy_time},利用率为{d.busy_time/SIMULATION_TIME}")
+        print(
+            f"{d.id} total busy time = {d.busy_time:.2f}, "
+            f"utilization = {d.busy_time / SIMULATION_TIME:.3f}"
+        )
 
-    # average times grouped by CTAS level
-    print(df.groupby("ctas_level")[["waiting_time", "service_time","whole_time","nurse_time","bed_time"]].mean())
+    ctas_counts = df["ctas_level"].value_counts().to_dict()
+    print("Number of patients by CTAS:", ctas_counts)
 
-    simulation_resut={
-    "seed": GLOBAL_SEED,
-    "average_service_time": float(df["service_time"].mean()),
-    "average_waiting_time": float(df["waiting_time"].mean()),
-    "average_system_time": float(df["departure_time"].sub(df["arrival_time"]).mean()),
-    "doctor_mean_service_time": float(ddf["busy time"].mean()),
-    "doctor_utilization": float(ddf["utilization"].mean())
-}
+    by_ctas = df.groupby("ctas_level").agg(
+        patient_count=("id", "count"),
+        mean_waiting=("waiting_time", "mean"),
+        mean_service=("service_time", "mean"),
+        mean_whole=("whole_time", "mean"),
+        mean_nurse=("nurse_time", "mean"),
+        mean_bed=("bed_time", "mean"),
+    )
 
+    simulation_resut = {
+        "seed": GLOBAL_SEED,
+        "total_patients": int(Patient_number),
+        "overall_average_service_time": float(df["service_time"].mean()),
+        "overall_average_waiting_time": float(df["waiting_time"].mean()),
+        "overall_average_system_time": float(df["departure_time"].sub(df["arrival_time"]).mean()),
+        "doctor_mean_service_time": float(ddf["busy time"].mean()),
+        "doctor_utilization": float(ddf["utilization"].mean()),
+        "nurse_time": float(df["nurse_time"].mean()),
+    }
 
+    levels = ["ctas1", "ctas2", "ctas3", "ctas4", "ctas5"]
+    for lvl in levels:
+        if lvl in by_ctas.index:
+            row = by_ctas.loc[lvl]
+            simulation_resut[f"{lvl}_patient_count"] = int(row["patient_count"])
+            simulation_resut[f"{lvl}_mean_waiting"] = float(row["mean_waiting"])
+            simulation_resut[f"{lvl}_mean_service"] = float(row["mean_service"])
+            simulation_resut[f"{lvl}_mean_whole"] = float(row["mean_whole"])
+            simulation_resut[f"{lvl}_mean_nurse"] = float(row["mean_nurse"])
+            simulation_resut[f"{lvl}_mean_bed"] = float(row["mean_bed"])
+        else:
+            simulation_resut[f"{lvl}_patient_count"] = 0
+            simulation_resut[f"{lvl}_mean_waiting"] = np.nan
+            simulation_resut[f"{lvl}_mean_service"] = np.nan
+            simulation_resut[f"{lvl}_mean_whole"] = np.nan
+            simulation_resut[f"{lvl}_mean_nurse"] = np.nan
+            simulation_resut[f"{lvl}_mean_bed"] = np.nan
 
-
-
-    import matplotlib.pyplot as plt
-
-    # 1. distribution of service time
-    plt.hist(df["service_time"], bins=30)
-    plt.xlabel("Service Time (minutes)")
-    plt.ylabel("Frequency")
-    plt.title("Distribution of Service Time")
-    plt.show()
-
-    # 2. distribution of waiting time
-    plt.hist(df["waiting_time"], bins=30)
-    plt.xlabel("Waiting Time (minutes)")
-    plt.ylabel("Frequency")
-    plt.title("Distribution of Waiting Time")
-    plt.show()
-
-    # 3. scatter plot of arrival time vs service time
-    plt.scatter(df["arrival_time"], df["service_time"], alpha=0.6)
-    plt.xlabel("Arrival Time (minutes)")
-    plt.ylabel("Service Time (minutes)")
-    plt.title("Arrival Time vs Service Time")
-    plt.show()
-
-    # 4. rolling average waiting time over time (to observe congestion)
-    df_sorted = df.sort_values("arrival_time")
-    window = 50
-    rolling_mean = df_sorted["waiting_time"].rolling(window=window).mean()
-    plt.plot(df_sorted["arrival_time"], rolling_mean)
-    plt.xlabel("Arrival Time (minutes)")
-    plt.ylabel(f"Rolling Mean of Waiting Time (window={window})")
-    plt.title("Trend of Waiting Time over Time")
-    plt.show()
-
-    # 5. Arrivals per hour plot
-    arrivals = df["arrival_time"].copy()
-    hour = (arrivals // 60).astype(int)
-    arrivals_by_hour = hour.value_counts().sort_index()
-
-    plt.figure()
-    arrivals_by_hour.plot(kind="bar")
-    plt.xlabel("Hour of Day")
-    plt.ylabel("Arrivals")
-    plt.title("Arrivals per Hour")
-    plt.tight_layout(); plt.show()
-
-    # 6. Average witing time with 95% CI interval
-    def mean_ci(x, alpha=0.05):
-        x = np.asarray(x.dropna())
-        m = x.mean()
-        se = x.std(ddof=1)/np.sqrt(len(x))
-        z = 1.96
-        return m, m - z*se, m + z*se
-
-    g = df.groupby("ctas_level")["waiting_time"].apply(mean_ci)
-    means  = g.apply(lambda t: t[0])
-    lower  = g.apply(lambda t: t[1])
-    upper  = g.apply(lambda t: t[2])
-    err    = means - lower
-
-    order = ["ctas1","ctas2","ctas3","ctas4","ctas5"]
-    means = means.reindex(order); err = err.reindex(order)
-
-    plt.figure()
-    plt.bar(means.index, means.values, yerr=err.values, capsize=4)
-    plt.xlabel("CTAS Level"); plt.ylabel("Average Waiting (min)")
-    plt.title("Average Waiting by CTAS (95% CI)")
-    plt.tight_layout(); plt.show()
     return simulation_resut
 
-run_simulation(141)
+
+for i in range(1, 100):
+    CTAS1_queue = []
+    CTAS2_queue = []
+    CTAS3_queue = []
+    departure_list = []
+    doctors = []
+    run_simulation(i)
+
+data = [{
+    "id": p.id,
+    "arrival_time": p.arrival_time,
+    "service_time": p.service_time,
+    "waiting_time": p.waiting_time + p.bed_time + p.nurse_process_time,
+    "waiting_time_before_process": p.waiting_time + p.bed_time,
+    "departure_time": p.departure_time,
+    "bed_time": p.bed_time,
+    "ctas_level": p.ctas_level,
+    "whole_time": p.departure_time - p.arrival_time,
+    "nurse_time": p.nurse_process_time,
+} for p in all_patients]
+
+df = pd.DataFrame(data)
+
+plt.hist(df["service_time"], bins=30)
+plt.xlabel("Service Time")
+plt.ylabel("Frequency")
+plt.title(f"Distribution of Service Time (k={k})")
+plt.show()
+
+print(f"Total number of patients across all runs: {len(all_patients)}")
+print("shape k =", shape, "scale θ =", scale)

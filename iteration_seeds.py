@@ -1,21 +1,34 @@
 import main_withComments
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import os
-df=pd.DataFrame()
+
+df = pd.DataFrame()
 
 for seed in range(1, 100):
-    result=main_withComments.run_simulation(seed)
-    row_df = pd.DataFrame([result])
-    df = pd.concat([df, row_df], ignore_index=True)
-    # file_path="/Users/cin/工程文件/Python/Simulation-project/simulation_summary.csv"
-    # if not os.path.exists(file_path):
-    #     result.to_csv(file_path, index=False)
-    # else:
-    #     result.to_csv(file_path, mode='a', index=False, header=False)
-df = df.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+    result = main_withComments.run_simulation(seed)
+    df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
 
-print("平均服务时间",df["average_service_time"].mean())
-print("平均等待时间",df["average_waiting_time"].mean())
-print("平均系统时间",df["average_system_time"].mean())
-print("医生平均服务时间",df["doctor_mean_service_time"].mean())
-print("医生平均利用率",df["doctor_utilization"].mean())
+
+
+print("\n===== Simulation Summary Table (100 replications) =====\n")
+print(df.to_string(index=False))
+
+summary = df.describe(include='all').loc[["mean", "std", "min", "max"]]
+print("\n===== Summary Statistics (mean, std, min, max) =====\n")
+print(summary.to_string())
+
+print("\n===== Key averages across replications =====")
+for col in df.columns:
+    if col != "seed":
+        print(f"{col:35s} : {df[col].mean():.4f}")
+
+csv_path = "simulation_summary_k=2.csv"
+df.to_csv(csv_path, index=False)
+print(f"\nCSV saved to: {csv_path}")
+
+xlsx_path = "simulation_summary_k=2.xlsx"
+df.to_excel(xlsx_path, index=False)
+print(f"Excel saved to: {xlsx_path}")
+
