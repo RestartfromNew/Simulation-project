@@ -21,8 +21,17 @@
       <change afterPath="$PROJECT_DIR$/../main_project" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../my_web_app" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/../web_project" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main_withComments.py" beforeDir="false" afterPath="$PROJECT_DIR$/main_withComments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/WechatIMG5228.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/WechatIMG5228.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/WechatIMG5228.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/output/WechatIMG5228.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/ave waiting.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/output/ave waiting.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/average total waiting time with CI.png" beforeDir="false" afterPath="$PROJECT_DIR$/output/average total waiting time with CI.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/distribution of service time.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/output/distribution of service time.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/distribution of waiting timejpg.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/output/distribution of waiting timejpg.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/simulation_summary2.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output/simulation_summary2.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/simulation_summary_k=2.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output/simulation_summary_k=2.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/simulation_summary_k=3.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output/simulation_summary_k=3.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/simulation_summary_k=4.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output/simulation_summary_k=4.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/output/simulation_summary_k=5.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output/simulation_summary_k=5.csv" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,29 +58,29 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.FIFS.executor&quot;: &quot;Run&quot;,
-    &quot;Python.input.executor&quot;: &quot;Run&quot;,
-    &quot;Python.iteration_seeds.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main_withComments.executor&quot;: &quot;Run&quot;,
-    &quot;Python.plot.executor&quot;: &quot;Run&quot;,
-    &quot;R.process.R.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;branch1&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.FIFS.executor": "Run",
+    "Python.input.executor": "Run",
+    "Python.iteration_seeds.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_withComments.executor": "Run",
+    "Python.plot.executor": "Run",
+    "R.process.R.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "Merging branch1",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.lookFeel",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.main_withComments">
     <configuration name="FIFS" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Simulation -project" />
@@ -241,7 +250,7 @@
       <workItem from="1763862937062" duration="2250000" />
       <workItem from="1763870917971" duration="785000" />
       <workItem from="1763871707174" duration="7017000" />
-      <workItem from="1763909323885" duration="10630000" />
+      <workItem from="1763909323885" duration="11283000" />
     </task>
     <servers />
   </component>
